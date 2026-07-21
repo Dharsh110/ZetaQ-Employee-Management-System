@@ -1,0 +1,19 @@
+{
+  "name": "zetaq-ems",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "npm@11.14.1",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "dev:web": "turbo run dev --filter=web",
+    "dev:api": "turbo run dev --filter=api"
+  },
+  "devDependencies": {
+    "turbo": "^2.1.3"
+  }
+}

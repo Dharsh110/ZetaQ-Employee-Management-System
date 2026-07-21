@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Environment variables (contain real secrets — never commit)
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+
+# Turborepo cache
+.turbo/
+
+# Claude Code local tooling (machine-specific, not part of the app)
+.claude/
+CLAUDE.md
+
+# Internal working docs — not part of the shipped project
+PROJECT_OVERVIEW.md
+USER_MANUAL.md
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor/OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
