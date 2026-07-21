@@ -16,6 +16,9 @@ export interface AttendanceRow {
   hours: string;
   officialHours: string;
   status: AttStatus;
+  // `isLate` is an independent flag on top of `status` — a late arrival is
+  // still Present, not a separate exclusive bucket (see admin/Attendance.tsx).
+  isLate: boolean;
 }
 
 const initials = (n: string) => n.split(' ').map((x) => x[0]).join('').slice(0, 2).toUpperCase();
@@ -37,7 +40,8 @@ export function mapApiAttendanceToRow(r: ApiAttendance): AttendanceRow {
     // Sourced only from the approved timesheet for this employee+date — distinct
     // from clock-based "hours" above, per the attendance/timesheet spec.
     officialHours: fmtOfficialMinutes(r.officialWorkMinutes),
-    status: (r.isLate ? 'Late' : r.status === 'present' ? 'Present' : r.status === 'absent' ? 'Absent' : r.status === 'holiday' ? 'Holiday' : 'Half Day') as AttStatus,
+    status: (r.status === 'present' ? 'Present' : r.status === 'absent' ? 'Absent' : r.status === 'holiday' ? 'Holiday' : 'Half Day') as AttStatus,
+    isLate: !!r.isLate,
   };
 }
 
@@ -91,5 +95,10 @@ export const attendanceColumns: ColumnDef<AttendanceRow>[] = [
       </span>
     ),
   },
-  { accessorKey: 'status', header: 'Status', cell: ({ row }) => <Badge variant={STATUS_VARIANT[row.original.status]}>{row.original.status}</Badge> },
+  {
+    accessorKey: 'status', header: 'Status',
+    cell: ({ row }) => row.original.isLate
+      ? <Badge variant="warning">Late</Badge>
+      : <Badge variant={STATUS_VARIANT[row.original.status]}>{row.original.status}</Badge>,
+  },
 ];

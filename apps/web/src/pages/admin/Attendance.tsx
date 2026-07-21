@@ -60,14 +60,16 @@ export default function AdminAttendance() {
   const rawRecords = isDayMode ? todayQuery.data?.records ?? [] : rangeQuery.data ?? [];
   const baseRecords = useMemo(() => rawRecords.map(mapApiAttendanceToRow), [rawRecords]);
 
-  const filtered = baseRecords.filter((r) => (!statusF || r.status === statusF) && (!deptF || r.dept === deptF) && (!empF || r.name === empF));
+  const filtered = baseRecords.filter((r) => (!statusF || (statusF === 'Late' ? r.isLate : r.status === statusF)) && (!deptF || r.dept === deptF) && (!empF || r.name === empF));
 
   const present = filtered.filter((r) => r.status === 'Present').length;
-  const late = filtered.filter((r) => r.status === 'Late').length;
+  // `late` is an independent flag layered on top of `status`, not a separate
+  // exclusive bucket — a late arrival is still counted in `present` above.
+  const late = filtered.filter((r) => r.isLate).length;
   const absent = filtered.filter((r) => r.status === 'Absent').length;
   const halfday = filtered.filter((r) => r.status === 'Half Day').length;
   const total = filtered.length;
-  const attRate = total ? Math.round(((present + late + halfday) / total) * 100) : 0;
+  const attRate = total ? Math.round(((present + halfday) / total) * 100) : 0;
 
   const periodLabel = { today: 'Today', week: 'This Week', month: `${MOS[selMonth]} ${selYear}`, year: `Year ${selYear}`, date: specificDate }[period];
 
