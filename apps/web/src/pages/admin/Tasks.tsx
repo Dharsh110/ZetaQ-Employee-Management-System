@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useGetDepartmentsQuery } from '../../store/api/departmentsApi';
 import { useGetTasksQuery, useCreateTaskMutation, useUpdateTaskMutation } from '../../store/api/tasksApi';
 import { useGetEmployeesQuery } from '../../store/api/employeesApi';
+import { useUploadFileMutation } from '../../store/api/uploadsApi';
 import { mapApiTaskToRow, buildTaskColumns, type TaskRow } from './tasks-columns';
 import { DataTable } from '../../components/data-table/data-table';
 import { Button } from '../../components/ui/button';
@@ -11,7 +12,17 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Checkbox } from '../../components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../../components/ui/dialog';
+
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 const CY = new Date().getFullYear();
 const YEARS = Array.from({ length: CY - 2023 + 1 }, (_, i) => 2023 + i);
@@ -21,14 +32,15 @@ const twoWeeksAgo = new Date(Date.now() - 14 * 864e5).toISOString().slice(0, 10)
 
 type Period = 'all' | 'today' | 'week' | 'month' | 'year';
 type PageView = 'main' | 'completed' | 'all';
-type FD = { title: string; assignedTo: string; priority: string; due: string; description: string };
-const BLANK: FD = { title: '', assignedTo: '', priority: 'medium', due: '', description: '' };
+type FD = { title: string; dept: string; assignedTo: string[]; fullTeam: boolean; priority: string; due: string; estHours: string; description: string; link: string };
+const BLANK: FD = { title: '', dept: '', assignedTo: [], fullTeam: false, priority: 'medium', due: '', estHours: '', description: '', link: '' };
 
 export default function AdminTasks() {
   const { data: apiTasks = [], isLoading } = useGetTasksQuery();
   const { data: apiEmployees = [] } = useGetEmployeesQuery();
   const [createTask] = useCreateTaskMutation();
   const [updateTask] = useUpdateTaskMutation();
+  const [uploadFile] = useUploadFileMutation();
   const { data: apiDepartments = [] } = useGetDepartmentsQuery();
   const DEPT_NAMES = useMemo(() => apiDepartments.map((d) => d.name), [apiDepartments]);
 
@@ -45,16 +57,57 @@ export default function AdminTasks() {
   const [compDeptF, setCompDeptF] = useState('');
   const [statusF, setStatusF] = useState('');
   const [empF, setEmpF] = useState('');
+  const [assigneeSearch, setAssigneeSearch] = useState('');
+  const [assigning, setAssigning] = useState(false);
+  const [pendingFile, setPendingFile] = useState<{ file: File; base64: string } | null>(null);
   const empNames = useMemo(() => Array.from(new Set(apiEmployees.map((e) => `${e.firstName} ${e.lastName}`))).sort((a, b) => a.localeCompare(b)), [apiEmployees]);
 
+  // Employees offered in the Assign Task modal — narrowed by the chosen department,
+  // then by the search box (name, code, or designation).
+  const modalDeptEmployees = useMemo(() => {
+    const q = assigneeSearch.trim().toLowerCase();
+    return apiEmployees
+      .filter((e) => e.status === 'active' && (!form.dept || (typeof e.department === 'object' ? e.department?.name : e.department) === form.dept))
+      .filter((e) => !q || `${e.firstName} ${e.lastName}`.toLowerCase().includes(q) || e.employeeCode?.toLowerCase().includes(q) || e.designation?.toLowerCase().includes(q));
+  }, [apiEmployees, form.dept, assigneeSearch]);
+
+  const toggleAssignee = (id: string) => setForm((p) => ({ ...p, assignedTo: p.assignedTo.includes(id) ? p.assignedTo.filter((x) => x !== id) : [...p.assignedTo, id], fullTeam: false }));
+  const toggleFullTeam = () => setForm((p) => {
+    const next = !p.fullTeam;
+    return { ...p, fullTeam: next, assignedTo: next ? modalDeptEmployees.map((e) => e._id) : [] };
+  });
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPendingFile({ file, base64: await readFileAsBase64(file) });
+    e.target.value = '';
+  };
+
   const saveTask = async () => {
-    if (!form.title.trim() || !form.assignedTo || !form.due) { toast.error('Fill required fields'); return; }
+    if (!form.title.trim() || form.assignedTo.length === 0 || !form.due) { toast.error('Fill required fields — title, at least one assignee, and due date'); return; }
+    setAssigning(true);
     try {
-      await createTask({ title: form.title, assignedTo: form.assignedTo, priority: form.priority, dueDate: form.due, description: form.description }).unwrap();
-      toast.success('Task assigned!');
-      setModal(false); setForm(BLANK);
+      let attachments: { name: string; size: number; type: string; uploadId?: string }[] | undefined;
+      if (pendingFile) {
+        try {
+          const uploaded = await uploadFile({ originalName: pendingFile.file.name, mimeType: pendingFile.file.type, size: pendingFile.file.size, data: pendingFile.base64, category: 'document' }).unwrap();
+          attachments = [{ name: pendingFile.file.name, size: pendingFile.file.size, type: pendingFile.file.type, uploadId: uploaded._id }];
+        } catch { toast.error('File upload failed — task will be created without the attachment'); }
+      }
+      await Promise.all(form.assignedTo.map((empId) =>
+        createTask({
+          title: form.title.trim(), assignedTo: empId, priority: form.priority, dueDate: form.due,
+          description: form.description, hoursEstimated: Number(form.estHours) || 8,
+          link: form.link.trim() || undefined, attachments,
+        }).unwrap()
+      ));
+      toast.success(`Task assigned to ${form.assignedTo.length} employee${form.assignedTo.length !== 1 ? 's' : ''}!`);
+      setModal(false); setForm(BLANK); setAssigneeSearch(''); setPendingFile(null);
     } catch (err: any) {
       toast.error(err?.data?.message || 'Failed to assign task');
+    } finally {
+      setAssigning(false);
     }
   };
 
@@ -92,31 +145,72 @@ export default function AdminTasks() {
   const goToAll = (status: string) => { setStatusF(status); setPeriod('all'); setPageView('all'); };
 
   const AssignDialog = (
-    <Dialog open={modal} onOpenChange={setModal}>
-      <DialogContent className="max-w-md">
+    <Dialog open={modal} onOpenChange={(o: boolean) => { setModal(o); if (!o) { setForm(BLANK); setAssigneeSearch(''); setPendingFile(null); } }}>
+      <DialogContent className="max-w-lg">
         <DialogHeader><DialogTitle>Assign New Task</DialogTitle></DialogHeader>
         <DialogBody>
-          <div><Label>Task Title *</Label><Input className="mt-1" value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} placeholder="e.g. Implement login flow" /></div>
+          <div><Label>Title *</Label><Input className="mt-1" value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} placeholder="Task title…" /></div>
+          <div><Label>Description</Label><Textarea className="mt-1" rows={2} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} /></div>
+
           <div>
-            <Label>Assignee *</Label>
-            <Select value={form.assignedTo} onValueChange={(v: string) => setForm((p) => ({ ...p, assignedTo: v }))}>
-              <SelectTrigger className="mt-1"><SelectValue placeholder="Select employee" /></SelectTrigger>
-              <SelectContent>{apiEmployees.map((e) => <SelectItem key={e._id} value={e._id}>{e.firstName} {e.lastName}</SelectItem>)}</SelectContent>
+            <Label>Department</Label>
+            <Select value={form.dept || 'all'} onValueChange={(v: string) => setForm((p) => ({ ...p, dept: v === 'all' ? '' : v, assignedTo: [], fullTeam: false }))}>
+              <SelectTrigger className="mt-1"><SelectValue placeholder="All Departments" /></SelectTrigger>
+              <SelectContent><SelectItem value="all">All Departments</SelectItem>{DEPT_NAMES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <div><Label>Due Date *</Label><Input className="mt-1" type="date" value={form.due} onChange={(e) => setForm((p) => ({ ...p, due: e.target.value }))} /></div>
+
           <div>
-            <Label>Priority</Label>
-            <Select value={form.priority} onValueChange={(v: string) => setForm((p) => ({ ...p, priority: v }))}>
-              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-              <SelectContent>{['low', 'medium', 'high', 'urgent'].map((p) => <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>)}</SelectContent>
-            </Select>
+            <div className="flex items-center justify-between mb-1">
+              <Label>Assign To * <span className="text-gray-400 font-normal">(select one or more)</span></Label>
+              <button type="button" onClick={toggleFullTeam} className={`text-[11px] px-2 py-1 rounded-lg font-semibold transition-colors ${form.fullTeam ? 'bg-blue-600 text-white' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100'}`}>
+                {form.fullTeam ? '✓ Full Team' : 'Select Full Team'}
+              </button>
+            </div>
+            <Input className="mb-1.5" value={assigneeSearch} onChange={(e) => setAssigneeSearch(e.target.value)} placeholder="Search employee by name, code, or role…" />
+            <div className="border border-gray-200 dark:border-gray-600 rounded-xl max-h-40 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-700">
+              {modalDeptEmployees.length === 0 ? (
+                <p className="text-xs text-gray-400 text-center py-4">No employees match</p>
+              ) : modalDeptEmployees.map((e) => (
+                <label key={e._id} className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                  <Checkbox checked={form.assignedTo.includes(e._id)} onCheckedChange={() => toggleAssignee(e._id)} />
+                  <span className="text-xs text-gray-700 dark:text-gray-300">{e.firstName} {e.lastName}</span>
+                  <span className="text-[10px] text-gray-400 ml-auto">{e.designation}</span>
+                </label>
+              ))}
+            </div>
+            {form.assignedTo.length > 0 && <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-1">{form.assignedTo.length} employee{form.assignedTo.length !== 1 ? 's' : ''} selected</p>}
           </div>
-          <div><Label>Description</Label><Textarea className="mt-1" rows={2} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} placeholder="Task details…" /></div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Priority</Label>
+              <Select value={form.priority} onValueChange={(v: string) => setForm((p) => ({ ...p, priority: v }))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>{['low', 'medium', 'high', 'urgent'].map((p) => <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div><Label>Due Date *</Label><Input className="mt-1" type="date" value={form.due} onChange={(e) => setForm((p) => ({ ...p, due: e.target.value }))} /></div>
+          </div>
+          <div><Label>Est. Hours</Label><Input className="mt-1" type="number" min="1" max="200" value={form.estHours} onChange={(e) => setForm((p) => ({ ...p, estHours: e.target.value }))} placeholder="8" /></div>
+
+          <div className="border border-dashed border-gray-200 dark:border-gray-600 rounded-xl p-3 space-y-2 bg-gray-50/50 dark:bg-gray-700/20">
+            <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Optional</p>
+            <div><Label>Reference Link</Label><Input className="mt-1" type="url" value={form.link} placeholder="https://…" onChange={(e) => setForm((p) => ({ ...p, link: e.target.value }))} /></div>
+            <div>
+              <Label>Attach File</Label>
+              <label className="mt-1 flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer hover:border-blue-400 transition-colors">
+                <input type="file" onChange={handleFile} className="hidden" />
+                <span className="text-sm">📎</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{pendingFile ? pendingFile.file.name : 'Choose a file…'}</span>
+                {pendingFile && <button type="button" onClick={(e) => { e.preventDefault(); setPendingFile(null); }} className="ml-auto text-red-400 hover:text-red-600 text-xs">✕</button>}
+              </label>
+            </div>
+          </div>
         </DialogBody>
         <DialogFooter>
-          <Button variant="outline" className="flex-1" onClick={() => setModal(false)}>Cancel</Button>
-          <Button className="flex-1" onClick={saveTask}>Assign Task</Button>
+          <Button variant="outline" className="flex-1" onClick={() => setModal(false)} disabled={assigning}>Cancel</Button>
+          <Button className="flex-1" onClick={saveTask} disabled={assigning}>{assigning ? 'Assigning…' : 'Assign Task'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

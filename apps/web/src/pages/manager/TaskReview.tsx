@@ -170,6 +170,7 @@ export default function ManagerTaskReview() {
         <span className="text-xs text-gray-700 dark:text-gray-300">{row.original.assignee}</span>
       </div>
     ) },
+    { accessorKey: 'dept', header: 'Department', cell: ({ row }) => <span className="text-[10px] px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full font-medium whitespace-nowrap">{row.original.dept}</span> },
     { accessorKey: 'priority', header: 'Priority', cell: ({ row }) => <Badge variant={P_VARIANT[row.original.priority]} className="capitalize">{row.original.priority}</Badge> },
     { accessorKey: 'due', header: 'Due Date', cell: ({ row }) => <span className="text-xs text-gray-700 dark:text-gray-300">{row.original.due}</span> },
     { accessorKey: 'status', header: 'Status', cell: ({ row }) => <Badge variant={S_VARIANT[row.original.status]}>{STATUS_LABELS[row.original.status]}</Badge> },
@@ -312,6 +313,7 @@ export default function ManagerTaskReview() {
               <DialogBody>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3"><p className="text-[10px] text-gray-400 uppercase">Assignee</p><p className="text-xs font-bold text-gray-800 dark:text-gray-200 mt-0.5">{viewTask.assignee}</p></div>
+                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3"><p className="text-[10px] text-gray-400 uppercase">Department</p><p className="text-xs font-bold text-gray-800 dark:text-gray-200 mt-0.5">{viewTask.dept || '—'}</p></div>
                   <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3"><p className="text-[10px] text-gray-400 uppercase">Due Date</p><p className="text-xs font-bold text-gray-800 dark:text-gray-200 mt-0.5">{viewTask.due}</p></div>
                   <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3"><p className="text-[10px] text-gray-400 uppercase">Priority</p><Badge variant={P_VARIANT[viewTask.priority]} className="capitalize mt-1">{viewTask.priority}</Badge></div>
                   <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3"><p className="text-[10px] text-gray-400 uppercase">Status</p><Badge variant={S_VARIANT[viewTask.status]} className="mt-1">{STATUS_LABELS[viewTask.status]}</Badge></div>

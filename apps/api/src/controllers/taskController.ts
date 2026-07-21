@@ -25,8 +25,13 @@ export const createTask = async (req: AuthRequest, res: Response): Promise<void>
     });
 
     const populated = await Task.findById(task._id)
-      .populate('assignedTo', 'firstName lastName employeeCode')
-      .populate('assignedBy', 'name');
+      .populate({
+        path: 'assignedTo',
+        select: 'firstName lastName employeeCode department',
+        populate: { path: 'department', select: 'name' },
+      })
+      .populate('assignedBy', 'name')
+      .populate('department', 'name');
 
     const assignee = await Employee.findById(assignedTo);
     if (assignee?.user) {
@@ -68,7 +73,11 @@ export const getAllTasks = async (req: AuthRequest, res: Response): Promise<void
     const skip = (Number(page) - 1) * Number(limit);
     const [tasks, total] = await Promise.all([
       Task.find(filter)
-        .populate('assignedTo', 'firstName lastName employeeCode avatar')
+        .populate({
+          path: 'assignedTo',
+          select: 'firstName lastName employeeCode avatar department',
+          populate: { path: 'department', select: 'name' },
+        })
         .populate('assignedBy', 'name')
         .populate('department', 'name')
         .skip(skip).limit(Number(limit)).sort({ createdAt: -1 }),
