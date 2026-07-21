@@ -1,4 +1,5 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { API_BASE_URL } from '../../lib/apiConfig';
 
 export interface ApiFileAttachment { name: string; type: string; size: number; url?: string; uploadId?: string; data?: string }
 export interface ApiComment { id: string; by: string; role?: string; text: string; at: string }
@@ -61,7 +62,7 @@ const mapComments = (comments?: RawComment[]): ApiComment[] =>
 const mapReport = (r: RawDailyReport): ApiDailyReport => ({ ...r, comments: mapComments(r.comments) });
 
 const rawBaseQuery = fetchBaseQuery({
-  baseUrl: '/api/v1',
+  baseUrl: API_BASE_URL,
   prepareHeaders: (headers) => {
     const token = localStorage.getItem('ems_token');
     if (token) headers.set('Authorization', `Bearer ${token}`);

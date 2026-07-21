@@ -1,4 +1,5 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { API_BASE_URL } from '../../lib/apiConfig';
 
 export interface ApiAttendance {
   _id: string;
@@ -53,7 +54,7 @@ function summarize(list: ApiAttendance[]): AttendanceSummary {
 }
 
 const rawBaseQuery = fetchBaseQuery({
-  baseUrl: '/api/v1',
+  baseUrl: API_BASE_URL,
   prepareHeaders: (headers) => {
     const token = localStorage.getItem('ems_token');
     if (token) headers.set('Authorization', `Bearer ${token}`);
