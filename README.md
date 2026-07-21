@@ -2,6 +2,30 @@
 
 A full-stack, role-based Employee Management System built on the MERN stack. Three portals — **Admin**, **Manager**, and **Employee** — share one codebase, one REST API, and one MongoDB database, covering the full HR operations loop: attendance, leave, tasks, timesheets, daily reports, payroll, messaging, and department management.
 
+## Portals
+
+| Portal | Who uses it | What they can do |
+|---|---|---|
+| **Admin** | HR / org owner | Full access to every module across every department — manage employees, create/promote department managers, view all attendance/leave/tasks/payroll, org-wide reports |
+| **Manager** | Team leads | Two modes on the same portal, controlled by whether the account is department-scoped: a **main manager** (unscoped) sees the whole org, a **department manager** is automatically restricted to their own department's people and data at the API level |
+| **Employee** | Everyone else | Personal workspace — check in/out, apply for leave, view/update assigned tasks, submit timesheets and daily reports, message their manager |
+
+Permissions are enforced **server-side** (in the API's authorization middleware and query filters), not just hidden in the UI — a department-scoped manager's requests physically cannot return another department's data.
+
+## How It Works
+
+```
+apps/web (React SPA, :5174)
+      │  REST calls, JWT in Authorization header
+      ▼
+apps/api (Express, :5000)
+      │  role + department checked on every route
+      ▼
+MongoDB Atlas
+```
+
+The frontend never talks to the database directly — every read/write goes through the Express API, which verifies the JWT, checks the caller's role, and (for managers) scopes the query to their department before touching MongoDB. On the frontend, Redux Toolkit Query owns all server data: every mutation declares which cached queries it invalidates, so the UI stays in sync automatically without manually-written refetch logic.
+
 ## Tech Stack
 
 **Frontend** (`apps/web`)
@@ -58,30 +82,81 @@ zetaq-ems/
 └── turbo.json
 ```
 
+## API Overview
+
+All routes are mounted under `/api/v1`. One route group per module:
+
+```
+/auth            login, forgot/reset password, Google OAuth
+/employees       employee CRUD, credential issuance
+/departments     department CRUD, head promotion
+/attendance      check-in/check-out, attendance records
+/leaves          apply, approve/reject, leave balance
+/tasks           assignment, status updates
+/timesheets      draft, submit, approve/reject, audit trail
+/daily-reports   submit, comment, list
+/messages        send, inbox/outbox
+/notifications   fetch, mark read
+/payroll         payroll records
+/calendar        events
+/reports         attendance % / performance aggregates
+/uploads         file attachments
+```
+
+Every route (except `/auth`) requires a `Authorization: Bearer <JWT>` header and is gated by role; manager-only routes additionally scope by department server-side.
+
 ## Getting Started
 
 ### Prerequisites
 - Node.js 18+
-- A MongoDB Atlas connection string (or local MongoDB instance)
+- A MongoDB connection string — either a free [MongoDB Atlas](https://www.mongodb.com/cloud/atlas/register) cluster or a local MongoDB instance
 
-### Setup
+### 1. Install dependencies
 
 ```bash
-# install dependencies for both workspaces
 npm install
-
-# configure environment variables
-cp apps/api/.env.example apps/api/.env
-# then edit apps/api/.env with your MongoDB URI and JWT secret
 ```
 
-### Run in development
+This installs both workspaces (`apps/api` and `apps/web`) in one pass via npm workspaces.
+
+### 2. Configure environment variables
+
+```bash
+cp apps/api/.env.example apps/api/.env
+```
+
+Then edit `apps/api/.env`:
+
+| Variable | Required | What it's for |
+|---|---|---|
+| `MONGODB_URI` | ✅ | Your MongoDB connection string |
+| `JWT_SECRET` | ✅ | Any random string — signs access tokens |
+| `JWT_REFRESH_SECRET` | ✅ | Any random string — signs refresh tokens |
+| `PORT` | — | Defaults to `5000` |
+| `CLIENT_URL` | — | Frontend origin, for CORS (`http://localhost:5174`) |
+| `SMTP_*` / `FROM_EMAIL` / `FROM_NAME` | optional | Only needed for the "forgot password" email flow |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | optional | Only needed to enable the Google sign-in button |
+
+`apps/web/.env` only needs `VITE_GOOGLE_CLIENT_ID` if you want Google sign-in on the frontend too — leave it blank otherwise.
+
+### 3. Seed initial data
+
+The database starts empty — nothing to log in with until you seed it:
+
+```bash
+cd apps/api
+npm run seed
+```
+
+This creates the initial departments, an admin account, and demo employees/managers so the app is immediately usable. Check `apps/api/src/seed.ts` for the generated login credentials.
+
+### 4. Run in development
 
 ```bash
 npm run dev
 ```
 
-This starts both workspaces together via Turborepo:
+Starts both workspaces together via Turborepo:
 - API on **http://localhost:5000**
 - Web app on **http://localhost:5174**
 
