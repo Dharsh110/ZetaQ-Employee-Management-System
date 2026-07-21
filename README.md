@@ -150,7 +150,29 @@ npm run seed
 
 This creates the initial departments, an admin account, and demo employees/managers so the app is immediately usable. Check `apps/api/src/seed.ts` for the generated login credentials.
 
-### 4. Run in development
+### 4. Demo login credentials
+
+After seeding, these accounts are ready to use (also shown in-app on the Login page's "Test credentials" panel):
+
+| Role | Email | Password | Scope |
+|---|---|---|---|
+| Admin | `admin@zetaq.com` | `Admin@1234` | Full system access |
+| Manager | `manager@zetaq.com` | `MainMgr@1234` | Main Manager — all departments |
+| Manager | `deepak.manager@zetaq.com` | `Deepak@1234` | Dept Manager — Engineering |
+| Manager | `vivek.marketing.manager@zetaq.com` | `843d7c0a639a` | Dept Manager — Marketing |
+| Manager | `sneha.finance.manager@zetaq.com` | `8f85b2a66d77` | Dept Manager — Finance |
+| Manager | `vikram.product.manager@zetaq.com` | `c7152dd5d869` | Dept Manager — Product |
+| Manager | `pooja.design.manager@zetaq.com` | `857b912a42e8` | Dept Manager — Design |
+| Manager | `ananya.salesmarketing.manager@zetaq.com` | `41a7aef42334` | Dept Manager — Sales & Marketing |
+| Manager | `kavya.support.manager@zetaq.com` | `f8d28ebe4f9d` | Dept Manager — Support |
+| Manager | `nikhil.security.manager@zetaq.com` | `7d964c61a5ad` | Dept Manager — Security |
+| Manager | `meena.hr.manager@zetaq.com` | `cb363af89c18` | Dept Manager — HR |
+| Manager | `ganesh.bpo.manager@zetaq.com` | `9aa3b9af8e6d` | Dept Manager — BPO |
+| Employee | `arjun@zetaq.com` | `Arjun@1234` | Personal workspace |
+
+> All names, emails, and data belong to a fictional company ("ZetaQ") generated for demo purposes — no real people or organizations.
+
+### 5. Run in development
 
 ```bash
 npm run dev
