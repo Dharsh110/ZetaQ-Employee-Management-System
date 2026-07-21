@@ -13,7 +13,10 @@ const FULL_MOS = ['January', 'February', 'March', 'April', 'May', 'June', 'July'
 
 type AttStatus = 'Present' | 'Late' | 'Absent' | 'Half Day' | 'Holiday' | 'Weekend';
 type Period = 'month' | 'week';
-type Record_ = { date: string; checkIn: string; checkOut: string; hours: string; status: AttStatus; notes: string };
+// `isLate` is an independent flag on top of `status` — a late arrival is still
+// Present, not a separate exclusive bucket. `status` never takes the value
+// 'Late' itself; that string only exists as a filter key / display overlay.
+type Record_ = { date: string; checkIn: string; checkOut: string; hours: string; status: AttStatus; isLate: boolean; notes: string };
 
 const S_CLR: Record<AttStatus, string> = {
   Present: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400',
@@ -53,7 +56,8 @@ export default function ManagerMyAttendance() {
       checkIn: fmt(r.checkIn),
       checkOut: fmt(r.checkOut),
       hours: r.totalHours ? `${Math.floor(r.totalHours)}h ${Math.round((r.totalHours % 1) * 60)}m` : '—',
-      status: (r.status === 'present' && r.isLate ? 'Late' : r.status === 'present' ? 'Present' : r.status === 'absent' ? 'Absent' : r.status === 'leave' ? 'Absent' : r.status === 'half_day' ? 'Half Day' : r.status === 'holiday' ? 'Holiday' : r.status === 'weekend' ? 'Weekend' : 'Present') as AttStatus,
+      status: (r.status === 'present' ? 'Present' : r.status === 'absent' ? 'Absent' : r.status === 'leave' ? 'Absent' : r.status === 'half_day' ? 'Half Day' : r.status === 'holiday' ? 'Holiday' : r.status === 'weekend' ? 'Weekend' : 'Present') as AttStatus,
+      isLate: !!r.isLate,
       notes: r.notes || '',
     };
   });
@@ -64,16 +68,16 @@ export default function ManagerMyAttendance() {
     return d.getMonth() === selMonth && d.getFullYear() === selYear;
   });
 
-  const filtered = periodFiltered.filter((r) => !statusF || r.status === statusF);
+  const filtered = periodFiltered.filter((r) => !statusF || (statusF === 'Late' ? r.isLate : r.status === statusF));
 
   const workingDays = periodFiltered.filter((r) => r.status !== 'Weekend').length;
   const holidays = periodFiltered.filter((r) => r.status === 'Holiday').length;
   const present = periodFiltered.filter((r) => r.status === 'Present').length;
-  const late = periodFiltered.filter((r) => r.status === 'Late').length;
+  const late = periodFiltered.filter((r) => r.isLate).length;
   const absent = periodFiltered.filter((r) => r.status === 'Absent').length;
   const halfday = periodFiltered.filter((r) => r.status === 'Half Day').length;
   const weekend = periodFiltered.filter((r) => r.status === 'Weekend').length;
-  const attRate = workingDays - holidays > 0 ? Math.round(((present + late + halfday) / (workingDays - holidays)) * 100) : 0;
+  const attRate = workingDays - holidays > 0 ? Math.round(((present + halfday) / (workingDays - holidays)) * 100) : 0;
 
   const statCards = [
     { label: 'Working Days', val: workingDays, color: 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700', text: 'text-gray-900 dark:text-white', sub: `${attRate}% rate`, statusKey: '' },
@@ -170,7 +174,7 @@ export default function ManagerMyAttendance() {
                   <TableCell>{r.checkIn ? <span className="text-xs font-mono font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-lg">{r.checkIn}</span> : <span className="text-xs text-gray-400">—</span>}</TableCell>
                   <TableCell>{r.checkOut ? <span className="text-xs font-mono font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-lg">{r.checkOut}</span> : <span className="text-xs text-gray-400">—</span>}</TableCell>
                   <TableCell className="font-bold">{r.hours}</TableCell>
-                  <TableCell><Badge className={S_CLR[r.status]}>{r.status}</Badge></TableCell>
+                  <TableCell>{r.isLate ? <Badge className={S_CLR.Late}>Late</Badge> : <Badge className={S_CLR[r.status]}>{r.status}</Badge>}</TableCell>
                   <TableCell className="text-gray-400 italic max-w-[150px] truncate" title={r.notes}>{r.notes || '—'}</TableCell>
                 </TableRow>
               ))}
