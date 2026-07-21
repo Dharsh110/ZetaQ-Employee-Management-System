@@ -2,9 +2,19 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import User, { IUser, UserRole } from '../models/User';
 
-export interface AuthRequest extends Request {
-  user?: IUser;
+// @types/passport declares a global Express.User = {} and augments Request.user
+// with it. Re-declaring `user` as IUser on a separate AuthRequest-extends-Request
+// interface makes every route handler's (req: AuthRequest) => ... fail Express's
+// RequestHandler assignability check under strict mode, since Express.User isn't
+// assignable to IUser. Augmenting the same global Request in place avoids the
+// conflict entirely — AuthRequest is now just an alias, so no call sites change.
+declare global {
+  namespace Express {
+    interface User extends IUser {}
+  }
 }
+
+export type AuthRequest = Request;
 
 interface JwtPayload {
   id: string;
