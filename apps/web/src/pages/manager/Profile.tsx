@@ -29,7 +29,7 @@ export default function ManagerProfile() {
         { l: 'Team Members', v: String(teamCount), icon: '👥', c: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' },
         { l: 'Tasks Assigned', v: String(teamTasks.length), icon: '📋', c: 'bg-purple-50 dark:bg-purple-900/20 text-purple-600' },
         { l: 'Task Completion', v: `${completionRate}%`, icon: '🎯', c: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600' },
-        { l: 'Attendance Rate', v: `${teamAttendanceRate}%`, icon: '✅', c: 'bg-amber-50 dark:bg-amber-900/20 text-amber-600' },
+        { l: 'Org Attendance Today', v: `${teamAttendanceRate}%`, icon: '✅', c: 'bg-amber-50 dark:bg-amber-900/20 text-amber-600' },
       ]}
       skills={['Team Leadership', 'Agile/Scrum', 'Project Management', 'Code Review', 'Performance Management', 'Mentoring', 'Sprint Planning', 'Stakeholder Communication']}
       emergencyContact={[['Name', 'Lakshmi Kumar'], ['Relationship', 'Spouse'], ['Phone', '+91 98765 43211']]}
