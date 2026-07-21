@@ -9,9 +9,19 @@ export const createTask = async (req: AuthRequest, res: Response): Promise<void>
   try {
     const { title, description, assignedTo, dueDate, priority, hoursEstimated, tags, department, link, attachments } = req.body;
 
+    // Neither the Admin nor the Manager "Assign Task" UI sends `department` —
+    // derive it from the assignee's own Employee record so this task is still
+    // visible to department-scoped views (dept manager Task Review, the
+    // department breakdown stats) that filter strictly on Task.department.
+    let taskDepartment = department;
+    if (!taskDepartment && assignedTo) {
+      const assigneeEmployee = await Employee.findById(assignedTo).select('department');
+      taskDepartment = assigneeEmployee?.department;
+    }
+
     const task = await Task.create({
       title, description, assignedTo, assignedBy: req.user?._id,
-      dueDate, priority, hoursEstimated, tags, department, link, attachments,
+      dueDate, priority, hoursEstimated, tags, department: taskDepartment, link, attachments,
     });
 
     const populated = await Task.findById(task._id)
