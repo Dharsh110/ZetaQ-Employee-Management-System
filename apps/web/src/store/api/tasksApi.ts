@@ -60,7 +60,7 @@ export const tasksApi = createApi({
         if (!result.error && saved) return { data: saved };
         return { error: result.error ?? { status: 'CUSTOM_ERROR', error: 'Unexpected response from server' } };
       },
-      invalidatesTags: [{ type: 'Task', id: 'LIST' }],
+      invalidatesTags: [{ type: 'Task', id: 'LIST' }, { type: 'Task', id: 'MINE' }],
     }),
     updateTask: builder.mutation<ApiTask, { id: string; status?: string; hoursWorked?: number; submittedDescription?: string }>({
       queryFn: async ({ id, ...body }, _api, _extra, baseQuery) => {

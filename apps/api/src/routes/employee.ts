@@ -11,7 +11,7 @@ router.get('/stats', authorize('admin', 'manager'), getDashboardStats);
 router.get('/', authorize('admin', 'manager'), getAllEmployees);
 router.get('/:id', authorize('admin', 'manager'), getEmployee);
 router.post('/', authorize('admin'), createEmployee);
-router.put('/:id', authorize('admin'), updateEmployee);
+router.put('/:id', authorize('admin', 'manager'), updateEmployee);
 router.delete('/:id', authorize('admin'), deleteEmployee);
 
 export default router;

@@ -168,9 +168,27 @@ export const createEmployee = async (req: AuthRequest, res: Response): Promise<v
   }
 };
 
-export const updateEmployee = async (req: Request, res: Response): Promise<void> => {
+export const updateEmployee = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const employee = await Employee.findByIdAndUpdate(req.params.id, req.body, {
+    // Managers can only edit their own department's team (dept-scoped managers)
+    // or anyone (the unscoped main manager); they're also limited to HR-safe
+    // fields — never department/role/reportingTo, which stay admin-only.
+    let updates = req.body;
+    if (req.user?.role === 'manager') {
+      const managerDept = (req.user as any).department;
+      if (managerDept) {
+        const target = await Employee.findById(req.params.id).populate('department', 'name');
+        const targetDept = target?.department && typeof target.department === 'object' ? (target.department as any).name : '';
+        if (!target || targetDept !== managerDept) {
+          res.status(403).json({ success: false, message: 'You can only manage employees in your own department.' });
+          return;
+        }
+      }
+      const { phone, designation, employmentType, status, salary, gender } = req.body;
+      updates = { phone, designation, employmentType, status, salary, gender };
+    }
+
+    const employee = await Employee.findByIdAndUpdate(req.params.id, updates, {
       new: true, runValidators: true,
     }).populate('department', 'name code').populate('reportingTo', 'firstName lastName');
 
